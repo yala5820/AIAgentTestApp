@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AI测试</string>
+    <string name="input_hint">请输入消息…</string>
+    <string name="btn_send">发送</string>
+    <string name="title_settings">设置</string>
+</resources>
