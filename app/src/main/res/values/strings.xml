@@ -4,4 +4,14 @@
     <string name="input_hint">请输入消息…</string>
     <string name="btn_send">发送</string>
     <string name="title_settings">设置</string>
+
+    <!-- ASR 测试凭证 — 来源 Launcher -->
+    <string name="iflytek_appid">cb062659</string>
+    <string name="iflytek_apisecret">ZGQxNTI2Yzg3M2VmYjJmN2NmNTI2NDky</string>
+    <string name="iflytek_apikey">501ef928f322d550abec81d08d5ec0c1</string>
+
+    <!-- 语音条 -->
+    <string name="voice_bar_idle">按住 说话</string>
+    <string name="voice_bar_recording">松开 发送</string>
+    <string name="voice_bar_cancel">松开 取消</string>
 </resources>

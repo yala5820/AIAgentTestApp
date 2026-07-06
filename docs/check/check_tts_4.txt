@@ -1,0 +1,40 @@
+最后一轮只读审批结论：计划主方向已经成立，但还不能直接按文档实现。 现在没有之前那种架构级错误，AIAgent VOICE 路径也已经避开了；剩下的问题集中在 ASR 权限/停止流程、资源释放、UI 状态和验收覆盖上。下面一次性列全。
+必须修正
+startAsr() 只检查录音权限，不申请录音权限，首次使用会直接失败。
+文档里 startAsr() 发现没有 RECORD_AUDIO 就 onError() 返回：[2026-07-06-voice-input-tts-design.md (line 35)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:35)。但 Launcher 的原始入口 getPermissionRecordAudio() 会动态申请权限：[ASRManager.java (line 195)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/java/com/hirain/launcher/asr/ASRManager.java:195)。
+需要明确：首次进入语音模式或首次长按时必须触发 RECORD_AUDIO 动态申请，授权成功后才允许录音；不能只回调失败。
+
+stopAsr(false) 伪代码漏掉了 mAsr.stop(false)，正常松开发送可能拿不到最终识别结果。
+文档的 stopAsr(boolean cancel) 只在 cancel=true 时调用 mAsr.stop(true)：[2026-07-06-voice-input-tts-design.md (line 59)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:59)。Launcher 原实现正常停止时会调用 mAsr.stop(false)，等待最后一帧结果：[ASRManager.java (line 302)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/java/com/hirain/launcher/asr/ASRManager.java:302)。
+需要改为：cancel=false 时停止录音并调用 mAsr.stop(false)；cancel=true 时停止录音并调用 mAsr.stop(true)。
+
+isCanceled 在 onResult/onError 中立即复位可能挡不住后续回调。
+文档写 if (isCanceled) { isCanceled = false; return; }：[2026-07-06-voice-input-tts-design.md (line 75)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:75)。ASR 可能有多次回调，第一次回调复位后，后续结果仍可能击穿。
+建议取消后保持忽略状态，直到下一次 startAsr() 才统一复位 isCanceled=false。
+
+直接复制 AudioRecorderManager 有空回调风险。
+Launcher 的录音线程直接调用 callback.onAudioVolume() / callback.onAudioData()：[AudioRecorderManager.java (line 150)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/java/com/hirain/launcher/utils/AudioRecorderManager.java:150)。stopRecord() 又会把 callback=null：[AudioRecorderManager.java (line 190)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/java/com/hirain/launcher/utils/AudioRecorderManager.java:190)。线程停止竞态下可能 NPE。
+文档现在写“直接复制”：[2026-07-06-voice-input-tts-design.md (line 22)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:22)，建议改成“复制后加 callback 判空和 AudioRecord 初始化失败处理”。
+
+ASR 初始化失败后的恢复路径还不完整。
+文档加入了 isAuth 检查：[2026-07-06-voice-input-tts-design.md (line 43)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:43)，但没有说明 SDK 初始化失败后是否允许重试、何时重试、UI 怎么提示。需要明确至少一种行为：切换语音模式时初始化失败则禁用语音条并 Toast；再次点击麦克风可重试初始化。
+
+需要补强
+6. requestTtsMap 放入所有请求是对的，但示例没有覆盖响应缺失/超时后的清理。
+   AIAgent TEXT 路径有超时回包逻辑：[AIAgentService.kt (line 477)](D:/code/android/AndroidStudioProjects/AIAgent/app/src/main/java/com/hirain/aiagent/AIAgentService.kt:477)，正常会清掉 map。但如果服务断开后请求已发出、Activity 销毁、或 listener 解绑，map 可能残留。建议在 onDestroy() 清空 requestTtsMap，并停止 TTS。
+7. onAIResponse() 的主线程说明要落到代码结构。
+   文档说 put/remove 都在主线程：[2026-07-06-voice-input-tts-design.md (line 146)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:146)。当前 onAIResponse() 是先进入 Binder 回调再 runOnUiThread()：[MainActivity.java (line 126)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/app/src/main/java/com/hirain/aiagent/test/activity/MainActivity.java:126)。实现时 requestTtsMap.remove() 必须放在 runOnUiThread() 内部，否则文档假设不成立。
+8. TTS 设置入口和现有 Settings/侧边栏状态不一致。
+   文档写“侧边栏或设置入口”：[2026-07-06-voice-input-tts-design.md (line 277)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:277)，但对话管理/侧边栏暂缓，当前 App 只有左上设置按钮。建议本阶段明确只接入现有 SettingsActivity 或现有设置按钮弹 AlertDialog，不要再提侧边栏。
+9. 语音按钮切换时权限策略要明确。
+   文档说首次点击语音按钮调用 getPermissionInit()：[2026-07-06-voice-input-tts-design.md (line 90)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:90)。但 getPermissionInit() 只初始化 SDK/申请 INTERNET，不等于录音权限。建议改为：点击麦克风先初始化 SDK，再申请 RECORD_AUDIO，都成功才进入语音模式。
+10. 密钥提交策略仍有风险。
+   文档写复制到 strings.xml 且“不可提交生产分支”：[2026-07-06-voice-input-tts-design.md (line 79)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:79)。如果当前仓库本身会提交，就仍然会进版本历史。至少应说明这是测试仓库可接受；否则应放入 local.properties/未跟踪资源覆盖文件。
+可以接受的设计点
+以 TEXT 发送 ASR 结果是正确的。AIAgent processAgentRequest() 会按 TEXT 进入 handleTextRequest()：[AIAgentService.kt (line 413)](D:/code/android/AndroidStudioProjects/AIAgent/app/src/main/java/com/hirain/aiagent/AIAgentService.kt:413)，不会触发 handleVoiceRequest() 的 mManager?.speak()：[AIAgentService.kt (line 593)](D:/code/android/AndroidStudioProjects/AIAgent/app/src/main/java/com/hirain/aiagent/AIAgentService.kt:593)。
+沿用 Launcher 的 SparkChain.aar + Codec.aar 是合理的。
+沿用 Launcher 的 com.hjq:xxpermissions:8.2 坐标是合理的：[libs.versions.toml (line 28)](D:/code/android/AndroidStudioProjects/Launcher/gradle/libs.versions.toml:28)。
+requestId -> shouldSpeak 映射是正确方向，因为 AgentResponse 不带 inputType。
+不引入 MODIFY_AUDIO_SETTINGS 可以接受，因为本阶段不处理音频焦点和音量控制。
+最终审批
+当前文档距离可执行还差一次小修。修完上面 1-5，尤其是 RECORD_AUDIO 动态申请、stopAsr(false) 调用 mAsr.stop(false)、取消回调不复位、AudioRecorderManager 判空保护后，我认为可以进入实现。其它 6-10 是增强项，但建议同一轮文档修正里一并写清楚，避免实现时反复补洞。

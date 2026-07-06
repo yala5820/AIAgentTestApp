@@ -1,0 +1,20 @@
+我重新审查了这版文档。结论：核心方向可以通过，但实现前仍建议修正 3 个阻塞点和 3 个中等风险点。这版已经解决了“走 VOICE 导致 AIAgent 与 TestApp 重复 TTS”的最大问题：文档明确 ASR 后以 inputType=TEXT 发送，并不触发 AIAgent handleVoiceRequest()，这与当前 AIAgent 代码匹配。
+阻塞点
+录音权限路径仍不闭环。
+文档新增 startAsr() 直接调用 runAsr_Audio()：[2026-07-06-voice-input-tts-design.md (line 33)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:33)。但 Launcher 原入口 getPermissionRecordAudio() 负责 RECORD_AUDIO 动态权限：[ASRManager.java (line 195)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/java/com/hirain/launcher/asr/ASRManager.java:195)。如果长按直接走 startAsr()，首次录音可能绕过权限检查。建议改成：startAsr() 内部先检查 RECORD_AUDIO，未授权就回调错误/请求权限，授权后再启动。
+
+取消逻辑把私有资源交给“调用方负责”，实现上不可行。
+文档写取消后调用方负责停止 AudioRecorderManager、复位 isWrite：[2026-07-06-voice-input-tts-design.md (line 45)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:45)。但 audioRecorderManager 和 isWrite 都在 ASRManager 内部，调用方拿不到。应改为：stopAsr(boolean cancel) 内部统一停止录音、isWrite.set(false)、释放 recorder、设置 isrun=false，调用方只负责恢复 UI。
+
+ASR SDK 初始化成功状态没有纳入流程。
+Launcher SDKInit() 有 isAuth 标志：[ASRManager.java (line 173)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/java/com/hirain/launcher/asr/ASRManager.java:173)，但 runAsr_Audio() 没检查初始化是否成功：[ASRManager.java (line 229)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/java/com/hirain/launcher/asr/ASRManager.java:229)。文档应明确：SDK 未初始化或初始化失败时禁止录音，Toast 提示并恢复语音条，否则会出现“权限有了但 ASR 起不来”的不稳定状态。
+
+中等风险
+TTS 全局 on 模式没有覆盖文本请求。
+文档的 requestTtsMap 示例只在“发送语音输入请求时”写入：[2026-07-06-voice-input-tts-design.md (line 95)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:95)。但 tts_mode=on 要求文本输入也播报：[2026-07-06-voice-input-tts-design.md (line 84)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:84)。所以所有请求都应写入 requestTtsMap，只是 shouldSpeak 根据输入来源和设置计算。
+requestTtsMap 线程安全需要说明。
+AIDL 回调不是普通点击回调路径，当前 MainActivity.onAIResponse() 会再切回 UI 线程显示：[MainActivity.java (line 126)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/app/src/main/java/com/hirain/aiagent/test/activity/MainActivity.java:126)。建议文档明确 map 的 put/remove 都在主线程执行，或者直接用 ConcurrentHashMap。
+TTS ready 状态缺失。
+文档有 TextToSpeech 初始化和 shutdown：[2026-07-06-voice-input-tts-design.md (line 111)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:111)，但没写 setLanguage() 失败或 TTS 尚未 ready 时如何处理。建议加 isTtsReady，未 ready 时只显示文本不播报，避免空指针或无声失败。
+审批意见
+这版设计的主线已经正确：本地 ASR → TEXT 请求 → 本地按需 TTS。只要把上面 3 个阻塞点补进文档，我认为可以进入实现计划。尤其要把 ASRManager 的职责边界写清楚：权限检查、SDK 初始化检查、录音释放、取消状态、isWrite 复位都应由 ASRManager 自己闭环，MainActivity 只负责 UI 状态和发送 TEXT 请求。

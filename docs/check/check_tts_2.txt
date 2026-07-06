@@ -1,0 +1,21 @@
+已重新审查，文档比上一版清晰很多：核心方向已经改为“TestApp 本地 ASR + 以 TEXT 发送 + TestApp 本地 TTS”，这解决了上一版最大的重复播报问题。因为 AIAgent 当前 handleVoiceRequest() 仍会自己 mManager?.speak(res)，而新版明确不走 VOICE 路径，这个方向是合理的。
+仍有几个需要修正的点：
+ASRManager.startAsr() 方法没有来源，文档内部不一致。
+流程里写 ASRManager.startAsr()：[voice-input-tts-design.md (line 163)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:163)，但 Launcher 的类实际入口是 getPermissionRecordAudio()：[ASRManager.java (line 195)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/java/com/hirain/launcher/asr/ASRManager.java:195)。如果计划想提供 startAsr()，需要在“ASRManager 修改清单”里明确新增包装方法，否则实现时容易找不到方法或命名混乱。
+
+XXPermissions 依赖坐标和 Launcher 不一致，需要确认。
+文档新增的是 com.github.getActivity:XXPermissions:18.6：[voice-input-tts-design.md (line 221)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:221)，Launcher 版本目录使用的是 com.hjq:xxpermissions 且版本 8.2：[libs.versions.toml (line 28)](D:/code/android/AndroidStudioProjects/Launcher/gradle/libs.versions.toml:28)。如果你是有意升级依赖，需要在文档写明“使用新版坐标并验证 com.hjq.permissions.* 包名兼容”；否则建议沿用 Launcher 已验证坐标，减少变量。
+
+ASR 凭证外部化和 strings.xml 复制互相矛盾。
+前面写 appid/apikey/apiSecret 改为构造函数或 setter 传入：[voice-input-tts-design.md (line 40)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:40)，后面又写修改 res/values/strings.xml 保存 ASR 凭证：[同文档 (line 267)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:267)。建议选一种：最小改动可以仍放 strings.xml，但不要说外部化；如果要外部化，就写清楚凭证从哪里读入。
+
+取消录音时的状态复位还不够明确。
+文档写 cancel=true 时 isCanceled=true 并 mAsr.stop(true)：[voice-input-tts-design.md (line 33)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:33)，但还应明确取消后要停止录音、恢复语音条、清理 isWrite，并避免后续 onError() 把取消当成失败 Toast。Launcher 当前 stopAsr() 会停止 AudioRecorderManager：[ASRManager.java (line 302)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/java/com/hirain/launcher/asr/ASRManager.java:302)，但你的重载设计需要保持这条释放路径。
+
+TTS 请求映射要覆盖失败返回和服务未连接。
+requestTtsMap 设计是对的：[voice-input-tts-design.md (line 81)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:81)。但如果 processAgentRequest() 返回非 0，当前 TestApp 会直接 Toast：[MainActivity.java (line 96)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/app/src/main/java/com/hirain/aiagent/test/activity/MainActivity.java:96)，这时需要移除对应 requestId 的 map 项，避免残留。
+
+缺少 MODIFY_AUDIO_SETTINGS 和 TTS queries 的取舍说明。
+Launcher manifest 有 MODIFY_AUDIO_SETTINGS 和 TTS 服务查询：[AndroidManifest.xml (line 19)](D:/code/android/AndroidStudioProjects/Launcher/app/src/main/AndroidManifest.xml:19)。新版计划只加 RECORD_AUDIO、INTERNET：[voice-input-tts-design.md (line 42)](D:/code/android/AndroidStudioProjects/AIAgentTestApp/docs/superpowers/specs/2026-07-06-voice-input-tts-design.md:42)。如果 TestApp 不调音量、不指定引擎，可以不加，但建议在文档中写明“本阶段不控制音频焦点/音量，所以不引入额外权限”。
+
+总体判断：可以作为实现前设计基础，但建议先修正以上 6 点再执行。 关键架构方向已经正确，剩下主要是方法命名、依赖坐标、凭证来源和边界状态处理这些会影响实现稳定性的细节。

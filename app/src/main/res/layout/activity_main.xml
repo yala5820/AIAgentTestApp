@@ -26,9 +26,10 @@
         android:src="@drawable/ic_send"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="设置"
+        android:layout_marginStart="4dp"
         android:rotation="90"
-        app:layout_constraintTop_toTopOf="@id/toolbar"
         app:layout_constraintStart_toStartOf="@id/toolbar"
+        app:layout_constraintTop_toTopOf="@id/toolbar"
         app:layout_constraintBottom_toBottomOf="@id/toolbar" />
 
     <!-- 聊天消息列表 -->
@@ -57,6 +58,16 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <!-- 语音/键盘切换按钮 -->
+        <ImageButton
+            android:id="@+id/btn_toggle_input"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="切换输入模式"
+            android:layout_gravity="center_vertical" />
+
+        <!-- 文本输入框（文字模式） -->
         <EditText
             android:id="@+id/et_input"
             android:layout_width="0dp"
@@ -68,8 +79,24 @@
             android:background="@null"
             android:textSize="16sp"
             android:paddingHorizontal="12dp"
-            android:paddingVertical="10dp" />
+            android:paddingVertical="10dp"
+            android:visibility="visible" />
 
+        <!-- 语音条（语音模式） -->
+        <TextView
+            android:id="@+id/tv_voice_bar"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="@string/voice_bar_idle"
+            android:textSize="16sp"
+            android:textColor="#666"
+            android:background="@drawable/bg_voice_bar_normal"
+            android:visibility="gone"
+            android:layout_marginHorizontal="4dp" />
+
+        <!-- 发送按钮 -->
         <ImageButton
             android:id="@+id/btn_send"
             android:layout_width="48dp"
