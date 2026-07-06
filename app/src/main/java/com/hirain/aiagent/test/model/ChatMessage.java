@@ -1,4 +1,4 @@
-package com.hirain.aiagent.test;
+package com.hirain.aiagent.test.model;
 
 public class ChatMessage {
     public static final int TYPE_SENT = 0;

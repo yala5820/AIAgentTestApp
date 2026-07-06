@@ -1,4 +1,4 @@
-package com.hirain.aiagent.test;
+package com.hirain.aiagent.test.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -8,16 +8,18 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.hirain.aiagent.test.R;
 import com.hirain.aiagent.AIAgent;
 import com.hirain.aiagent.AgentRequest;
 import com.hirain.aiagent.AgentResponse;
 import com.hirain.aiagent.IAIAgentServiceListener;
+import com.hirain.aiagent.test.adapter.ChatAdapter;
+import com.hirain.aiagent.test.model.ChatMessage;
 
 import java.util.UUID;
 

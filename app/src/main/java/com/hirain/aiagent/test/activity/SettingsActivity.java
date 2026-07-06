@@ -1,8 +1,10 @@
-package com.hirain.aiagent.test;
+package com.hirain.aiagent.test.activity;
 
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.hirain.aiagent.test.R;
 
 public class SettingsActivity extends AppCompatActivity {
     @Override

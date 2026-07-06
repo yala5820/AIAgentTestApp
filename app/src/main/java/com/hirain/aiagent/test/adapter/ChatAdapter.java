@@ -1,4 +1,4 @@
-package com.hirain.aiagent.test;
+package com.hirain.aiagent.test.adapter;
 
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -9,6 +9,9 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.hirain.aiagent.test.R;
+import com.hirain.aiagent.test.model.ChatMessage;
 
 import java.util.ArrayList;
 import java.util.List;
