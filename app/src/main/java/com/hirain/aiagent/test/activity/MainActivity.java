@@ -299,19 +299,40 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
     }
 
     private void initTts() {
-        textToSpeech = new TextToSpeech(this, status -> {
+        textToSpeech = new TextToSpeech(getApplicationContext(), status -> {
             if (status == TextToSpeech.SUCCESS) {
                 int result = textToSpeech.setLanguage(Locale.CHINA);
                 isTtsReady = (result != TextToSpeech.LANG_MISSING_DATA
                         && result != TextToSpeech.LANG_NOT_SUPPORTED);
-                if (!isTtsReady) {
-                    Log.w(TAG, "TTS init: Chinese language pack not installed");
-                    Toast.makeText(this, "未安装中文语音包，语音回复将静默显示", Toast.LENGTH_LONG).show();
+                if (isTtsReady) {
+                    Log.d(TAG, "TTS engine initialized successfully");
+                } else {
+                    Log.w(TAG, "TTS init: Chinese language pack not installed (result=" + result + ")");
+                    Toast.makeText(MainActivity.this,
+                            "未安装中文语音包，语音回复将静默显示", Toast.LENGTH_LONG).show();
                 }
             } else {
                 isTtsReady = false;
-                Log.e(TAG, "TTS init failed, status=" + status + ". No TTS engine on device.");
-                Toast.makeText(this, "设备未安装语音引擎，语音回复将静默显示", Toast.LENGTH_LONG).show();
+                Log.e(TAG, "TTS engine binding failed, status=" + status + ". Retrying in 2s.");
+                final TextToSpeech[] retryRef = new TextToSpeech[1];
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    retryRef[0] = new TextToSpeech(getApplicationContext(), retryStatus -> {
+                        if (retryStatus == TextToSpeech.SUCCESS && retryRef[0] != null) {
+                            TextToSpeech oldTts = textToSpeech;
+                            int r = retryRef[0].setLanguage(Locale.CHINA);
+                            isTtsReady = (r != TextToSpeech.LANG_MISSING_DATA
+                                    && r != TextToSpeech.LANG_NOT_SUPPORTED);
+                            if (isTtsReady) {
+                                if (oldTts != null && oldTts != retryRef[0]) {
+                                    oldTts.shutdown();
+                                }
+                                textToSpeech = retryRef[0];
+                            }
+                        }
+                    });
+                }, 2000L);
+                Toast.makeText(MainActivity.this,
+                        "语音引擎连接中…", Toast.LENGTH_SHORT).show();
             }
         });
     }
