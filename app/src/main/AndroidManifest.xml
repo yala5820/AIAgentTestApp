@@ -4,8 +4,11 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- 允许跨应用绑定 AIAgentService -->
+    <!-- 允许跨应用绑定 AIAgentService，并允许 Android 11+ 查询系统 TTS 引擎服务 -->
     <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
         <package android:name="com.hirain.aiagent" />
     </queries>
 
