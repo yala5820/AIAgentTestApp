@@ -782,4 +782,14 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
         // 残留映射清理
         requestTtsMap.clear();
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 从后台返回时，如果 AIAgent 服务持续运行（没有重新连接），刷新会话状态
+        if (AIAgent.getInstance().isConnected()) {
+            initActiveConversation();
+            loadConversationsForCurrentUser();
+        }
+    }
 }
