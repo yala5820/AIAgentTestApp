@@ -9,4 +9,5 @@
     <color name="chat_bg">#FFF8F8F8</color>
     <color name="bubble_send">#FFE8F0FE</color>
     <color name="bubble_receive">#FFFFFFFF</color>
+    <color name="divider">#FFE0E0E0</color>
 </resources>

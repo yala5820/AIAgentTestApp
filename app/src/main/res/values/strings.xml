@@ -14,4 +14,17 @@
     <string name="voice_bar_idle">按住 说话</string>
     <string name="voice_bar_recording">松开 发送</string>
     <string name="voice_bar_cancel">松开 取消</string>
+
+    <!-- 侧边栏 -->
+    <string name="drawer_new_conversation">+ 新建对话</string>
+    <string name="drawer_empty">暂无对话</string>
+    <string name="drawer_user">用户</string>
+    <string name="drawer_ai_settings">AI 设置</string>
+    <string name="conversation_switch_hint">已切换到：</string>
+    <string name="conversation_deleted">当前会话已删除，请新建或选择其他会话</string>
+    <string name="conversation_delete_confirm">确定要删除该对话吗？</string>
+    <string name="conversation_delete_title">删除对话</string>
+    <string name="conversation_new_created">已新建对话：</string>
+    <string name="user_switched">已切换用户：</string>
+    <string name="persona_switched">AI 性格已切换为：</string>
 </resources>

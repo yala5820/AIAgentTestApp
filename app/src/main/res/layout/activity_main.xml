@@ -1,111 +1,244 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<androidx.drawerlayout.widget.DrawerLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/chat_bg">
+    android:fitsSystemWindows="true">
 
-    <!-- 顶部工具栏 -->
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="0dp"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/white"
-        app:title="AI 测试"
-        app:titleTextColor="@color/black"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 设置按钮 -->
-    <ImageButton
-        android:id="@+id/btn_settings"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:src="@drawable/ic_send"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="设置"
-        android:layout_marginStart="4dp"
-        android:rotation="90"
-        app:layout_constraintStart_toStartOf="@id/toolbar"
-        app:layout_constraintTop_toTopOf="@id/toolbar"
-        app:layout_constraintBottom_toBottomOf="@id/toolbar" />
+    <!-- 主内容区 -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/chat_bg">
 
-    <!-- 聊天消息列表 -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_chat"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:clipToPadding="false"
-        android:padding="12dp"
-        android:overScrollMode="never"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:layout_constraintBottom_toTopOf="@id/input_layout"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <!-- 顶部栏（保留 toolbar id 避免 MainActivity 编译失败） -->
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="0dp"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/white"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 底部输入区域 -->
-    <LinearLayout
-        android:id="@+id/input_layout"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="@color/white"
-        android:paddingHorizontal="8dp"
-        android:paddingVertical="6dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/top_bar"
+            android:layout_width="0dp"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/white"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 语音/键盘切换按钮 -->
-        <ImageButton
-            android:id="@+id/btn_toggle_input"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="切换输入模式"
-            android:layout_gravity="center_vertical" />
+            <!-- 左侧菜单按钮（也是现有 btn_settings 的替换） -->
+            <ImageButton
+                android:id="@+id/btn_settings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_send"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="打开侧边栏"
+                android:padding="12dp"
+                android:rotation="90"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent" />
 
-        <!-- 文本输入框（文字模式） -->
-        <EditText
-            android:id="@+id/et_input"
+            <!-- 居中标题 -->
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AI 测试"
+                android:textSize="18sp"
+                android:textColor="@color/black"
+                android:textStyle="bold"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <!-- 连接状态 -->
+            <TextView
+                android:id="@+id/tv_connection_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#999"
+                app:layout_constraintTop_toBottomOf="@id/tv_title"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- 聊天消息列表 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_chat"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:clipToPadding="false"
+            android:padding="12dp"
+            android:overScrollMode="never"
+            app:layout_constraintTop_toBottomOf="@id/top_bar"
+            app:layout_constraintBottom_toTopOf="@id/input_layout"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- 底部输入区域 -->
+        <LinearLayout
+            android:id="@+id/input_layout"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="@string/input_hint"
-            android:inputType="text|textMultiLine"
-            android:maxLines="4"
-            android:background="@null"
-            android:textSize="16sp"
-            android:paddingHorizontal="12dp"
-            android:paddingVertical="10dp"
-            android:visibility="visible" />
+            android:orientation="horizontal"
+            android:background="@color/white"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="6dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 语音条（语音模式） -->
-        <TextView
-            android:id="@+id/tv_voice_bar"
+            <!-- 语音/键盘切换按钮 -->
+            <ImageButton
+                android:id="@+id/btn_toggle_input"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="切换输入模式"
+                android:layout_gravity="center_vertical" />
+
+            <!-- 文本输入框 -->
+            <EditText
+                android:id="@+id/et_input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/input_hint"
+                android:inputType="text|textMultiLine"
+                android:maxLines="4"
+                android:background="@null"
+                android:textSize="16sp"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="10dp"
+                android:visibility="visible" />
+
+            <!-- 语音条 -->
+            <TextView
+                android:id="@+id/tv_voice_bar"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="@string/voice_bar_idle"
+                android:textSize="16sp"
+                android:textColor="#666"
+                android:background="@drawable/bg_voice_bar_normal"
+                android:visibility="gone"
+                android:layout_marginHorizontal="4dp" />
+
+            <!-- 右侧动作按钮：发送/停止 -->
+            <ImageButton
+                android:id="@+id/btn_send"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_send"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/btn_send"
+                android:layout_gravity="center_vertical" />
+
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- 左侧侧边栏 -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="@color/white">
+
+        <!-- 新建对话按钮 -->
+        <Button
+            android:id="@+id/btn_new_conversation"
             android:layout_width="0dp"
             android:layout_height="48dp"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="@string/voice_bar_idle"
-            android:textSize="16sp"
-            android:textColor="#666"
-            android:background="@drawable/bg_voice_bar_normal"
+            android:text="@string/drawer_new_conversation"
+            android:textAllCaps="false"
+            android:layout_margin="12dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- 空状态 -->
+        <TextView
+            android:id="@+id/tv_drawer_empty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/drawer_empty"
+            android:textSize="14sp"
+            android:textColor="#999"
             android:visibility="gone"
-            android:layout_marginHorizontal="4dp" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-        <!-- 发送按钮 -->
-        <ImageButton
-            android:id="@+id/btn_send"
-            android:layout_width="48dp"
+        <!-- 会话列表 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_conversations"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:clipToPadding="false"
+            android:paddingVertical="8dp"
+            android:overScrollMode="never"
+            android:visibility="visible"
+            app:layout_constraintTop_toBottomOf="@id/btn_new_conversation"
+            app:layout_constraintBottom_toTopOf="@id/drawer_bottom_bar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- 底部按钮栏 -->
+        <LinearLayout
+            android:id="@+id/drawer_bottom_bar"
+            android:layout_width="0dp"
             android:layout_height="48dp"
-            android:src="@drawable/ic_send"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/btn_send"
-            android:layout_gravity="center_vertical" />
+            android:orientation="horizontal"
+            android:background="@color/white"
+            android:gravity="center"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
-    </LinearLayout>
+            <Button
+                android:id="@+id/btn_drawer_user"
+                style="?attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/drawer_user"
+                android:textAllCaps="false"
+                android:textSize="14sp" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+            <View
+                android:layout_width="1dp"
+                android:layout_height="24dp"
+                android:background="@color/divider" />
+
+            <Button
+                android:id="@+id/btn_drawer_ai_settings"
+                style="?attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/drawer_ai_settings"
+                android:textAllCaps="false"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.drawerlayout.widget.DrawerLayout>

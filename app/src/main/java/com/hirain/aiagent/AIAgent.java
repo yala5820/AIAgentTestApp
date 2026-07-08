@@ -119,6 +119,88 @@ public class AIAgent {
         }
     }
 
+    // ── 会话管理 ──
+
+    public ConversationOperationResult createConversation(ConversationRequest request) {
+        if (m_service == null) {
+            Log.w(TAG, "createConversation: service not connected");
+            return null;
+        }
+        try {
+            return m_service.createConversation(request);
+        } catch (RemoteException e) {
+            Log.e(TAG, "createConversation failed", e);
+            return null;
+        }
+    }
+
+    public ConversationListResponse listConversations(String userId) {
+        if (m_service == null) {
+            Log.w(TAG, "listConversations: service not connected");
+            return null;
+        }
+        try {
+            return m_service.listConversations(userId);
+        } catch (RemoteException e) {
+            Log.e(TAG, "listConversations failed", e);
+            return null;
+        }
+    }
+
+    public ConversationOperationResult deleteConversation(String userId, String sessionId) {
+        if (m_service == null) {
+            Log.w(TAG, "deleteConversation: service not connected");
+            return null;
+        }
+        try {
+            return m_service.deleteConversation(userId, sessionId);
+        } catch (RemoteException e) {
+            Log.e(TAG, "deleteConversation failed", e);
+            return null;
+        }
+    }
+
+    public ConversationOperationResult switchConversation(String userId, String sessionId) {
+        if (m_service == null) {
+            Log.w(TAG, "switchConversation: service not connected");
+            return null;
+        }
+        try {
+            return m_service.switchConversation(userId, sessionId);
+        } catch (RemoteException e) {
+            Log.e(TAG, "switchConversation failed", e);
+            return null;
+        }
+    }
+
+    public ConversationInfo getActiveConversation(String userId) {
+        if (m_service == null) {
+            Log.w(TAG, "getActiveConversation: service not connected");
+            return null;
+        }
+        try {
+            return m_service.getActiveConversation(userId);
+        } catch (RemoteException e) {
+            Log.e(TAG, "getActiveConversation failed", e);
+            return null;
+        }
+    }
+
+    // ── 取消请求 ──
+
+    public CancelRequestResult cancelAgentRequest(String requestId, String reason) {
+        if (m_service == null) {
+            Log.w(TAG, "cancelAgentRequest: service not connected");
+            return null;
+        }
+        try {
+            return m_service.cancelAgentRequest(requestId, reason);
+        } catch (RemoteException e) {
+            Log.e(TAG, "cancelAgentRequest failed", e);
+            return null;
+        }
+    }
+
     public boolean isConnected() {
         return mIsConnection.get();
     }

@@ -32,6 +32,7 @@ dependencies {
     implementation(libs.activity)
     implementation(libs.constraintlayout)
     implementation(libs.recyclerview)
+    implementation(libs.drawerlayout)
     implementation(files("libs/SparkChain.aar"))
     implementation(files("libs/Codec.aar"))
     implementation(files("libs/xxpermissions-8.2.aar"))
