@@ -1,13 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_500">#6750A4</color>
-    <color name="purple_700">#4F378B</color>
-    <color name="teal_200">#03DAC5</color>
-    <color name="teal_700">#018786</color>
-    <color name="white">#FFFFFF</color>
-    <color name="black">#FF000000</color>
-    <color name="chat_bg">#FFF8F8F8</color>
-    <color name="bubble_send">#FFE8F0FE</color>
-    <color name="bubble_receive">#FFFFFFFF</color>
-    <color name="divider">#FFE0E0E0</color>
+    <!-- GPT 风格语义色：名称表达用途，避免业务代码依赖具体色相。 -->
+    <color name="color_page_background">#FFFFFF</color>
+    <color name="color_surface_subtle">#F7F7F8</color>
+    <color name="color_text_primary">#202123</color>
+    <color name="color_text_secondary">#6B6B6B</color>
+    <color name="color_text_tertiary">#8E8E8E</color>
+    <color name="color_border_subtle">#E5E5E5</color>
+    <color name="color_user_message">#F4F4F4</color>
+    <color name="color_ai_message">#00FFFFFF</color>
+    <color name="color_conversation_selected">#ECECEC</color>
+    <color name="color_status_connected">#2E7D32</color>
+    <color name="color_status_connecting">#8A6D1D</color>
+    <color name="color_status_disconnected">#B3261E</color>
+    <color name="color_action_primary">#202123</color>
+    <color name="color_on_action_primary">#FFFFFF</color>
+    <color name="color_ripple_on_dark">#33FFFFFF</color>
+    <color name="color_voice_recording">#E8F1FF</color>
+    <color name="color_voice_cancel">#FDECEC</color>
 </resources>

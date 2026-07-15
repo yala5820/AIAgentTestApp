@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- API 27 起系统才支持浅色导航栏图标，低版本继续使用基础主题。 -->
+    <style name="Theme.AIAgentTestApp" parent="Theme.AIAgentTestApp.Base">
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

@@ -81,7 +81,7 @@ public class ConversationAdapter extends RecyclerView.Adapter<ConversationAdapte
 
         boolean isActive = conv.getSessionId() != null && conv.getSessionId().equals(activeSessionId);
         if (isActive) {
-            holder.itemView.setBackgroundColor(0x1A6750A4);
+            holder.itemView.setBackgroundResource(R.drawable.bg_conversation_selected);
         } else {
             holder.itemView.setBackgroundResource(android.R.color.transparent);
         }

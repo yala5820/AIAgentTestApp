@@ -13,16 +13,17 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -40,6 +41,8 @@ import com.hirain.aiagent.test.adapter.ChatAdapter;
 import com.hirain.aiagent.test.asr.ASRManager;
 import com.hirain.aiagent.test.model.ChatMessage;
 import com.hirain.aiagent.test.adapter.ConversationAdapter;
+import com.hirain.aiagent.test.pet.FloatingPetController;
+import com.hirain.aiagent.test.pet.PetSpriteView;
 import com.hjq.permissions.OnPermission;
 import com.hjq.permissions.XXPermissions;
 
@@ -60,20 +63,44 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
     private EditText etInput;
     private ImageButton btnSend;
     private ImageButton btnToggleInput;
-    private ImageButton btnSettings;
+    private ImageButton btnMenu;
+    private TextView btnUser;
     private TextView tvVoiceBar;
-    private Toolbar toolbar;
     private TextView tvConnectionStatus;
+    private View emptyChatState;
     private DrawerLayout drawerLayout;
     private ChatAdapter chatAdapter;
+    private RecyclerView.AdapterDataObserver chatDataObserver;
+    private FrameLayout petOverlay;
+    private PetSpriteView petView;
+    private FloatingPetController floatingPetController;
+
+    private final View.OnLayoutChangeListener chatWidthChangeListener =
+            (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+                if (chatAdapter == null) {
+                    return;
+                }
+                int availableWidth = right - left - view.getPaddingStart() - view.getPaddingEnd();
+                if (availableWidth <= 0) {
+                    return;
+                }
+                int cap = getResources().getDimensionPixelSize(R.dimen.message_width_cap);
+                int target = Math.min(Math.round(availableWidth * 0.78f), cap);
+                chatAdapter.setMessageMaxWidthPx(target);
+            };
 
     // Sidebar
     private Button mBtnNewConversation;
     private TextView mTvDrawerEmpty;
     private RecyclerView mRvConversations;
-    private Button mBtnDrawerUser;
     private Button mBtnDrawerAiSettings;
     private ConversationAdapter conversationAdapter;
+
+    private enum ConnectionUiState {
+        CONNECTING,
+        CONNECTED,
+        DISCONNECTED
+    }
 
     // 状态
     private String currentUserId = "default_user";
@@ -83,6 +110,7 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
     private String activeRequestId;
     private String activeClientMessageId;
     private boolean isRequestProcessing = false;
+    private ConnectionUiState connectionUiState = ConnectionUiState.CONNECTING;
     private Handler requestWatchdog = new Handler(Looper.getMainLooper());
     private Runnable watchdogRunnable = () -> {
         Log.w(TAG, "Request watchdog timeout");
@@ -118,13 +146,11 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
         initViews();
         setupRecyclerView();
         setupListeners();
+        initFloatingPet();
         initTts();
         initAsr();
 
         AIAgent.getInstance().registerAIAgentLisener(this);
-
-        chatAdapter.addMessage(new ChatMessage(
-                ChatMessage.TYPE_RECEIVED, "你好！我是 AI 测试助手，请开始对话。", System.currentTimeMillis()));
     }
 
     // ── 初始化 ──
@@ -134,19 +160,18 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
         etInput = findViewById(R.id.et_input);
         btnSend = findViewById(R.id.btn_send);
         btnToggleInput = findViewById(R.id.btn_toggle_input);
-        btnSettings = findViewById(R.id.btn_settings);
+        btnMenu = findViewById(R.id.btn_menu);
+        btnUser = findViewById(R.id.btn_user);
         tvVoiceBar = findViewById(R.id.tv_voice_bar);
         tvConnectionStatus = findViewById(R.id.tv_connection_status);
+        emptyChatState = findViewById(R.id.empty_chat_state);
         drawerLayout = findViewById(R.id.drawer_layout);
-        toolbar = findViewById(R.id.toolbar);
+        petOverlay = findViewById(R.id.pet_overlay);
+        petView = findViewById(R.id.pet_doge);
         mBtnNewConversation = findViewById(R.id.btn_new_conversation);
         mTvDrawerEmpty = findViewById(R.id.tv_drawer_empty);
         mRvConversations = findViewById(R.id.rv_conversations);
-        mBtnDrawerUser = findViewById(R.id.btn_drawer_user);
         mBtnDrawerAiSettings = findViewById(R.id.btn_drawer_ai_settings);
-        if (tvConnectionStatus != null) {
-            tvConnectionStatus.setText("连接中…");
-        }
 
         // 侧边栏会话列表
         conversationAdapter = new ConversationAdapter();
@@ -227,33 +252,6 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
                 Toast.makeText(this, "新建会话失败", Toast.LENGTH_SHORT).show();
             }
         });
-        mBtnDrawerUser.setOnClickListener(v -> {
-            if (isRequestProcessing) {
-                Toast.makeText(this, "当前请求处理中，请先停止或等待完成", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            String[] users = {"default_user", "test_user_1", "test_user_2"};
-            int checked = 0;
-            for (int i = 0; i < users.length; i++) {
-                if (users[i].equals(currentUserId)) { checked = i; break; }
-            }
-            new AlertDialog.Builder(this)
-                    .setTitle("切换用户")
-                    .setSingleChoiceItems(users, checked, (dialog, which) -> {
-                        String newUserId = users[which];
-                        currentUserId = newUserId;
-                        ttsPrefs.edit().putString("current_user_id", newUserId).apply();
-                        currentSessionId = null;
-                        currentConversation = null;
-                        ttsPrefs.edit().remove("current_session_id").apply();
-                        chatAdapter.clearMessages();
-                        chatAdapter.addMessage(new ChatMessage(ChatMessage.TYPE_RECEIVED,
-                                getString(R.string.user_switched) + newUserId, System.currentTimeMillis()));
-                        loadConversationsForCurrentUser();
-                        dialog.dismiss();
-                    })
-                    .show();
-        });
         mBtnDrawerAiSettings.setOnClickListener(v -> {
             if (isRequestProcessing) {
                 Toast.makeText(this, "当前请求处理中，请先停止或等待完成", Toast.LENGTH_SHORT).show();
@@ -290,12 +288,46 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
             ttsPrefs.edit().putBoolean("voice_mode", false).apply();
         }
         applyInputMode();
+        refreshHeaderState();
     }
 
     private void setupRecyclerView() {
         chatAdapter = new ChatAdapter();
         rvChat.setLayoutManager(new LinearLayoutManager(this));
         rvChat.setAdapter(chatAdapter);
+        chatDataObserver = new RecyclerView.AdapterDataObserver() {
+            @Override
+            public void onChanged() {
+                refreshChatEmptyState();
+            }
+
+            @Override
+            public void onItemRangeInserted(int positionStart, int itemCount) {
+                refreshChatEmptyState();
+            }
+
+            @Override
+            public void onItemRangeRemoved(int positionStart, int itemCount) {
+                refreshChatEmptyState();
+            }
+        };
+        chatAdapter.registerAdapterDataObserver(chatDataObserver);
+        rvChat.addOnLayoutChangeListener(chatWidthChangeListener);
+        refreshChatEmptyState();
+    }
+
+    private void initFloatingPet() {
+        floatingPetController = new FloatingPetController(
+                this, drawerLayout, petOverlay, petView);
+    }
+
+    private void refreshChatEmptyState() {
+        if (chatAdapter == null || emptyChatState == null) {
+            return;
+        }
+        boolean isEmpty = chatAdapter.getItemCount() == 0;
+        emptyChatState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        rvChat.setVisibility(isEmpty ? View.INVISIBLE : View.VISIBLE);
     }
 
     private void initTts() {
@@ -527,13 +559,50 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
 
         btnToggleInput.setOnClickListener(v -> toggleInputMode());
 
-        btnSettings.setOnClickListener(v -> {
+        btnMenu.setOnClickListener(v -> {
             if (drawerLayout != null) {
                 drawerLayout.openDrawer(GravityCompat.START);
             }
         });
+        btnUser.setOnClickListener(v -> showUserSwitchDialog());
 
         tvVoiceBar.setOnTouchListener(voiceBarTouchListener);
+    }
+
+    /**
+     * 复用原侧边栏用户切换流程，仅迁移触发入口。这里保持状态清理和服务调用顺序不变，
+     * 避免一次纯 UI 调整意外改变不同用户之间的会话隔离语义。
+     */
+    private void showUserSwitchDialog() {
+        if (isRequestProcessing) {
+            Toast.makeText(this, "当前请求处理中，请先停止或等待完成", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String[] users = {"default_user", "test_user_1", "test_user_2"};
+        int checked = 0;
+        for (int i = 0; i < users.length; i++) {
+            if (users[i].equals(currentUserId)) {
+                checked = i;
+                break;
+            }
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("切换用户")
+                .setSingleChoiceItems(users, checked, (dialog, which) -> {
+                    String newUserId = users[which];
+                    currentUserId = newUserId;
+                    ttsPrefs.edit().putString("current_user_id", newUserId).apply();
+                    currentSessionId = null;
+                    currentConversation = null;
+                    ttsPrefs.edit().remove("current_session_id").apply();
+                    chatAdapter.clearMessages();
+                    chatAdapter.addMessage(new ChatMessage(ChatMessage.TYPE_RECEIVED,
+                            getString(R.string.user_switched) + newUserId, System.currentTimeMillis()));
+                    loadConversationsForCurrentUser();
+                    refreshHeaderState();
+                    dialog.dismiss();
+                })
+                .show();
     }
 
     private void sendTextRequest(String text, boolean fromVoice) {
@@ -612,9 +681,10 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
     public void onAIAgentServiceConnected() {
         Log.d(TAG, "AIAgentService 连接成功");
         runOnUiThread(() -> {
-            if (tvConnectionStatus != null) tvConnectionStatus.setText("已连接");
+            connectionUiState = ConnectionUiState.CONNECTED;
             initActiveConversation();
             loadConversationsForCurrentUser();
+            refreshHeaderState();
         });
     }
 
@@ -622,7 +692,8 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
     public void onAIAgentServiceDisconnected() {
         Log.d(TAG, "AIAgentService 断开");
         runOnUiThread(() -> {
-            if (tvConnectionStatus != null) tvConnectionStatus.setText("未连接");
+            connectionUiState = ConnectionUiState.DISCONNECTED;
+            refreshHeaderState();
             requestWatchdog.removeCallbacks(watchdogRunnable);
             if (isRequestProcessing) {
                 setRequestProcessing(false, null);
@@ -679,16 +750,19 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
 
         // 处理中禁用侧边栏操作，恢复时重新启用
         mBtnNewConversation.setEnabled(!processing);
-        mBtnDrawerUser.setEnabled(!processing);
         mBtnDrawerAiSettings.setEnabled(!processing);
+        btnUser.setEnabled(!processing);
+        btnUser.setAlpha(processing ? 0.45f : 1.0f);
         conversationAdapter.setClickable(!processing);
 
         if (processing) {
             btnSend.setImageResource(R.drawable.ic_stop);
+            btnSend.setContentDescription(getString(R.string.btn_stop));
             btnSend.setEnabled(true);
             btnSend.setAlpha(1.0f);
         } else {
             btnSend.setImageResource(R.drawable.ic_send);
+            btnSend.setContentDescription(getString(R.string.btn_send));
             boolean isVoiceAndIdle = isVoiceMode;
             btnSend.setEnabled(!isVoiceAndIdle);
             btnSend.setAlpha(isVoiceAndIdle ? 0.4f : 1.0f);
@@ -742,24 +816,68 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
     }
 
     private void refreshHeaderState() {
-        String status = "已连接";
-        if (currentUserId != null && currentSessionId != null) {
-            status = currentUserId + " · " + currentSessionId.substring(Math.max(0, currentSessionId.length() - 8));
-        } else if (currentUserId != null) {
-            status = currentUserId;
+        if (tvConnectionStatus == null || btnUser == null) {
+            return;
         }
-        if (tvConnectionStatus != null) tvConnectionStatus.setText(status);
+        int statusColor;
+        if (connectionUiState == ConnectionUiState.CONNECTING) {
+            tvConnectionStatus.setText(R.string.connection_connecting);
+            statusColor = R.color.color_status_connecting;
+        } else if (connectionUiState == ConnectionUiState.DISCONNECTED) {
+            tvConnectionStatus.setText(R.string.connection_disconnected);
+            statusColor = R.color.color_status_disconnected;
+        } else if (currentSessionId == null) {
+            tvConnectionStatus.setText(R.string.connection_no_session);
+            statusColor = R.color.color_status_connected;
+        } else {
+            String suffix = currentSessionId.substring(Math.max(0, currentSessionId.length() - 8));
+            tvConnectionStatus.setText(getString(R.string.connection_session, suffix));
+            statusColor = R.color.color_status_connected;
+        }
+        tvConnectionStatus.setTextColor(ContextCompat.getColor(this, statusColor));
+        btnUser.setText(formatUserBadge(currentUserId));
+        btnUser.setContentDescription(getString(R.string.btn_switch_user, currentUserId));
+    }
+
+    private String formatUserBadge(String userId) {
+        if (TextUtils.isEmpty(userId)) {
+            return "?";
+        }
+        if ("default_user".equals(userId)) {
+            return "D";
+        }
+        if (userId.startsWith("test_user_")) {
+            char suffix = userId.charAt(userId.length() - 1);
+            if (Character.isDigit(suffix)) {
+                return "T" + suffix;
+            }
+        }
+        return userId.substring(0, 1).toUpperCase(Locale.ROOT);
     }
 
     private void scrollToBottom() {
-        rvChat.post(() -> rvChat.smoothScrollToPosition(chatAdapter.getItemCount() - 1));
+        rvChat.post(() -> {
+            int itemCount = chatAdapter.getItemCount();
+            if (itemCount > 0) {
+                rvChat.smoothScrollToPosition(itemCount - 1);
+            }
+        });
     }
 
     // ── 生命周期 ──
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
+        if (floatingPetController != null) {
+            floatingPetController.destroy();
+            floatingPetController = null;
+        }
+        if (chatAdapter != null && chatDataObserver != null) {
+            chatAdapter.unregisterAdapterDataObserver(chatDataObserver);
+        }
+        if (rvChat != null) {
+            rvChat.removeOnLayoutChangeListener(chatWidthChangeListener);
+        }
         AIAgent.getInstance().unRegisterAIAgentLisener(this);
 
         // TTS 清理
@@ -781,6 +899,7 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
 
         // 残留映射清理
         requestTtsMap.clear();
+        super.onDestroy();
     }
 
     @Override

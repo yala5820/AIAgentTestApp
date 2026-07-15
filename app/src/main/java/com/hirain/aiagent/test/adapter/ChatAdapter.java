@@ -19,6 +19,21 @@ import java.util.List;
 public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
 
     private final List<ChatMessage> messages = new ArrayList<>();
+    private int messageMaxWidthPx;
+
+    /**
+     * 更新消息最大宽度。宽度由 RecyclerView 的真实可用空间计算，放在 Adapter
+     * 之外可以避免每个 ViewHolder 重复注册布局监听，也能在横竖屏变化时统一刷新。
+     */
+    public void setMessageMaxWidthPx(int messageMaxWidthPx) {
+        if (messageMaxWidthPx <= 0 || this.messageMaxWidthPx == messageMaxWidthPx) {
+            return;
+        }
+        this.messageMaxWidthPx = messageMaxWidthPx;
+        if (!messages.isEmpty()) {
+            notifyItemRangeChanged(0, messages.size());
+        }
+    }
 
     public void addMessage(ChatMessage msg) {
         messages.add(msg);
@@ -47,6 +62,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ChatMessage msg = messages.get(position);
         holder.tvMessage.setText(msg.getContent());
+        if (messageMaxWidthPx > 0) {
+            holder.tvMessage.setMaxWidth(messageMaxWidthPx);
+        }
 
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) holder.tvMessage.getLayoutParams();
         if (msg.getType() == ChatMessage.TYPE_SENT) {

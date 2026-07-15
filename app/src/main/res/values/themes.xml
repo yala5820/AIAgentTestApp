@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.AIAgentTestApp" parent="Theme.Material3.Light.NoActionBar">
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="android:statusBarColor">@color/white</item>
+    <style name="Theme.AIAgentTestApp.Base" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/color_action_primary</item>
+        <item name="colorOnPrimary">@color/color_on_action_primary</item>
+        <item name="colorSecondary">@color/color_text_secondary</item>
+        <item name="android:colorAccent">@color/color_action_primary</item>
+        <item name="android:windowBackground">@color/color_page_background</item>
+        <item name="android:statusBarColor">@color/color_page_background</item>
+        <item name="android:navigationBarColor">@color/color_page_background</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
+
+    <style name="Theme.AIAgentTestApp" parent="Theme.AIAgentTestApp.Base" />
 </resources>

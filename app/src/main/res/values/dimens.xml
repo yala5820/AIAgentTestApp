@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 手机优先的基础尺寸；宽屏只覆盖确有必要的参数。 -->
+    <dimen name="top_bar_height">64dp</dimen>
+    <dimen name="content_horizontal_margin">12dp</dimen>
+    <dimen name="chat_content_max_width">1000dp</dimen>
+    <dimen name="message_width_cap">520dp</dimen>
+    <dimen name="drawer_width">300dp</dimen>
+    <dimen name="input_vertical_margin">8dp</dimen>
+    <dimen name="input_corner_radius">24dp</dimen>
+    <dimen name="message_corner_radius">18dp</dimen>
+    <dimen name="pet_width">88dp</dimen>
+    <dimen name="pet_height">96dp</dimen>
+    <dimen name="pet_hidden_width">48dp</dimen>
+    <dimen name="pet_hidden_height">52dp</dimen>
+    <dimen name="pet_edge_margin">8dp</dimen>
+</resources>

@@ -1,8 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AI测试</string>
+    <string name="chat_title">AI 测试</string>
+    <string name="chat_welcome_title">有什么可以帮忙的？</string>
+    <string name="chat_welcome_subtitle">可以输入文字，或切换到语音模式开始测试</string>
     <string name="input_hint">请输入消息…</string>
     <string name="btn_send">发送</string>
+    <string name="btn_stop">停止生成</string>
+    <string name="btn_toggle_input_mode">切换文字或语音输入</string>
+    <string name="btn_open_drawer">打开会话列表</string>
+    <string name="btn_switch_user">切换用户，当前用户：%1$s</string>
+    <string name="connection_connecting">连接中…</string>
+    <string name="connection_disconnected">未连接</string>
+    <string name="connection_no_session">已连接 · 未选择会话</string>
+    <string name="connection_session">已连接 · 会话 %1$s</string>
     <string name="title_settings">设置</string>
 
     <!-- ASR 测试凭证 — 来源 Launcher -->
@@ -27,4 +38,9 @@
     <string name="conversation_new_created">已新建对话：</string>
     <string name="user_switched">已切换用户：</string>
     <string name="persona_switched">AI 性格已切换为：</string>
+
+    <!-- 应用内悬浮宠物 -->
+    <string name="pet_content_description">Doge 悬浮宠物</string>
+    <string name="pet_hidden_content_description">恢复 Doge 悬浮宠物</string>
+    <string name="pet_action_hide">隐藏</string>
 </resources>
