@@ -37,6 +37,7 @@ import com.hirain.aiagent.ConversationOperationResult;
 import com.hirain.aiagent.ConversationRequest;
 import com.hirain.aiagent.IAIAgentServiceListener;
 import com.hirain.aiagent.test.R;
+import com.hirain.aiagent.test.EvalModeStateStore;
 import com.hirain.aiagent.test.adapter.ChatAdapter;
 import com.hirain.aiagent.test.asr.ASRManager;
 import com.hirain.aiagent.test.model.ChatMessage;
@@ -606,6 +607,10 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
     }
 
     private void sendTextRequest(String text, boolean fromVoice) {
+        if (EvalModeStateStore.isEvalActive()) {
+            Toast.makeText(this, "Eval 运行中，暂不允许人工发送", Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (currentSessionId == null) {
             Toast.makeText(this, "请先新建或选择会话", Toast.LENGTH_SHORT).show();
             return;
@@ -704,6 +709,8 @@ public class MainActivity extends AppCompatActivity implements IAIAgentServiceLi
     @Override
     public void onAIResponse(AgentResponse response) {
         if (response == null) return;
+        // 必须在 TTS 映射、迟到判断及任何 UI 操作之前过滤 Eval 回调，避免污染人工会话。
+        if (EvalModeStateStore.ownsClientMessageId(response.getClientMessageId())) return;
         String respReqId = response.getRequestId();
         boolean isCurrent = respReqId != null && respReqId.equals(activeRequestId);
         Boolean wasVoiceEntry = requestTtsMap.remove(respReqId);

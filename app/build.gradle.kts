@@ -24,6 +24,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    buildFeatures {
+        aidl = true
+    }
 }
 
 dependencies {
@@ -36,4 +39,6 @@ dependencies {
     implementation(files("libs/SparkChain.aar"))
     implementation(files("libs/Codec.aar"))
     implementation(files("libs/xxpermissions-8.2.aar"))
+    debugImplementation(libs.gson)
+    testImplementation(libs.junit)
 }
