@@ -1,5 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <provider
+            android:name=".eval.store.EvalResultProvider"
+            android:authorities="${applicationId}.eval.results"
+            android:exported="true"
+            android:grantUriPermissions="false" />
         <activity
             android:name=".eval.ui.EvalBridgeActivity"
             android:exported="true"

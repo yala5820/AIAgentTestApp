@@ -15,6 +15,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Eval Debug 在 x86_64 模拟器验证文本/AIDL，不打包仅有 ARM ABI 的语音库。
+            ndk {
+                abiFilters += "x86_64"
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

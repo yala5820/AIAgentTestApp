@@ -15,7 +15,12 @@ public final class EvalEnvironmentManager {
     public EvalEnvironmentManager(AIAgentEvalDebugClient client) { this.client = client; }
     public EvalEnvironmentState getState() { return state; }
     public boolean isReady() { return state == EvalEnvironmentState.READY; }
-    public void connect() { state = EvalEnvironmentState.CONNECTING; if (!client.connect()) state = EvalEnvironmentState.FAILED; }
+    public void connect() {
+        // 每条 ADB 命令都会确保连接；已有租约时绝不能把 READY 回退为 CONNECTING。
+        if (state == EvalEnvironmentState.READY || state == EvalEnvironmentState.CONNECTING) return;
+        state = EvalEnvironmentState.CONNECTING;
+        if (!client.connect()) state = EvalEnvironmentState.FAILED;
+    }
     public void onConnectionChanged(boolean connected) { if (!connected && state != EvalEnvironmentState.IDLE) { state = EvalEnvironmentState.FAILED; clearLease(); } }
     public void acquire(String correlationId, Callback callback) {
         if (state == EvalEnvironmentState.READY) { callback.onFailure("BRIDGE_BUSY", "环境租约已持有"); return; }

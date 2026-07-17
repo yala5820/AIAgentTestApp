@@ -50,7 +50,10 @@ public final class EvalBridgeManager {
     private volatile Observer observer;
     private volatile boolean commandRunning;
     private EvalBridgeManager(Context app) {
-        store = new EvalResultStore(app.getFilesDir(), codec);
+        java.io.File externalRoot = app.getExternalFilesDir(null);
+        // 车机 secondary user 不支持 adb run-as 选 user；已获用户批准后使用 Debug app-specific 外部目录。
+        store = externalRoot == null ? new EvalResultStore(app.getFilesDir(), codec)
+                : EvalResultStore.forApprovedExternalDirectory(new java.io.File(externalRoot, "eval-results"), codec);
         new EvalBridgeRecovery().recover(store, codec);
         AIAgentEvalDebugClient client = new AIAgentEvalDebugClient(app, binder, connected -> { });
         environment = new EvalEnvironmentManager(client);
@@ -66,14 +69,18 @@ public final class EvalBridgeManager {
             try { decoded = codec.decodeCommand(json); validator.validate(decoded); }
             catch (Exception e) { return; } // 无安全 correlationId 时不能生成无法关联的伪文件。
             EvalCommand command = decoded.command;
-            if (commandRunning) { terminal(command, new EvalBridgeError(EvalBridgeErrorCodes.BRIDGE_BUSY, "DISPATCH", "已有命令运行")); return; }
+            // CANCEL_REQUEST 是唯一允许在运行中 SEND_TEXT 期间进入的命令，不能被串行忙状态吞掉。
+            if (commandRunning && command.action != EvalAction.CANCEL_REQUEST) { terminal(command, new EvalBridgeError(EvalBridgeErrorCodes.BRIDGE_BUSY, "DISPATCH", "已有命令运行")); return; }
             EvalExecutionRecord record = new EvalExecutionRecord(command.correlationId, command.action);
+            record.protocolVersion = command.protocolVersion;
             if (!registry.register(record)) { terminal(command, new EvalBridgeError(EvalBridgeErrorCodes.BRIDGE_BUSY, "DISPATCH", "correlationId 已存在")); return; }
             commandRunning = true;
             EvalResultEnvelope pending = envelope(command, EvalBridgeState.PENDING); pending.timestamps.commandReceivedAt = now(); write(pending);
             record.bridgeState = EvalBridgeState.RUNNING;
             EvalResultEnvelope running = envelope(command, EvalBridgeState.RUNNING); running.timestamps.commandReceivedAt = pending.timestamps.commandReceivedAt; running.timestamps.startedAt = now(); write(running);
-            dispatch(command, record, running);
+            // ADB 自动入口没有人工“连接”点击步骤；先发起异步 bind，再回到串行执行器分派。
+            environment.connect();
+            scheduler.schedule(() -> serial.execute(() -> dispatch(command, record, running)), 500, TimeUnit.MILLISECONDS);
         });
     }
     private void dispatch(EvalCommand command, EvalExecutionRecord record, EvalResultEnvelope running) {
@@ -82,11 +89,7 @@ public final class EvalBridgeManager {
         else if (command.action == EvalAction.RESET_STATE || command.action == EvalAction.APPLY_STATE || command.action == EvalAction.READ_STATE || command.action == EvalAction.GET_VERSION) environment.operate(command.action, command.correlationId, command.action == EvalAction.APPLY_STATE ? command.payload : null, callback(command, record, running));
         else if (command.action == EvalAction.SEND_TEXT) {
             if (!environment.isReady()) { terminal(command, new EvalBridgeError(EvalBridgeErrorCodes.ENVIRONMENT_NOT_READY, "SEND_TEXT", "尚未持有有效 Eval 环境")); return; }
-            com.hirain.aiagent.AgentRequest request = requestFactory.create(command.payload, command.correlationId);
-            record.requestId = request.getRequestId(); record.clientMessageId = command.correlationId;
-            com.hirain.aiagent.test.EvalModeStateStore.registerEvalClientMessageId(command.correlationId);
-            if (agent.send(request) != 0) terminal(command, new EvalBridgeError("AGENT_SERVICE_UNAVAILABLE", "SEND_TEXT", "正式 AIAgent Service 未连接"));
-            else scheduleWatchdog(command, record, command.timeoutMs == null ? 40_000L : Math.max(35_000L, Math.min(60_000L, command.timeoutMs)));
+            captureBeforeAndSend(command, record);
         } else if (command.action == EvalAction.CANCEL_REQUEST) {
             EvalExecutionRecord target = registry.get(command.payload.get("targetCorrelationId").getAsString());
             if (target == null || target.requestId == null) { terminal(command, new EvalBridgeError("REQUEST_MAPPING_MISSING", "CANCEL", "未找到目标请求")); return; }
@@ -96,9 +99,33 @@ public final class EvalBridgeManager {
             JsonObject raw = sessions.execute(command.action, command.payload); EvalResultEnvelope result = envelope(command, EvalBridgeState.TERMINAL); result.timestamps.completedAt = now(); result.operationResult = new EvalOperationResult(); result.operationResult.action = command.action; result.operationResult.success = raw.get("success").getAsBoolean(); result.operationResult.status = raw.get("status").getAsString(); result.operationResult.error = raw.has("error") ? raw.get("error").getAsString() : null; result.operationResult.data = raw.getAsJsonObject("data"); terminal(record, result);
         } else terminal(command, new EvalBridgeError("COMMAND_NOT_AVAILABLE", "DISPATCH", "未知动作"));
     }
+    /**
+     * 先固定请求前的状态和版本，再进入正式主链路；这样电脑端能判定车控效果，
+     * 而不是依赖模型文字中“已打开”这类不可验证描述。
+     */
+    private void captureBeforeAndSend(EvalCommand command, EvalExecutionRecord record) {
+        environment.operate(EvalAction.READ_STATE, command.correlationId, null, new EvalEnvironmentManager.Callback() {
+            @Override public void onResponse(JsonObject response) {
+                serial.execute(() -> { record.beforeVehicleState = snapshotOf(response);
+                    environment.operate(EvalAction.GET_VERSION, command.correlationId, null, new EvalEnvironmentManager.Callback() {
+                        @Override public void onResponse(JsonObject versionResponse) { serial.execute(() -> { record.versionFingerprint = versionResponse.has("versionFingerprint") ? canonicalVersionFingerprint(versionResponse.getAsJsonObject("versionFingerprint")) : null; sendText(command, record); }); }
+                        @Override public void onFailure(String code, String detail) { serial.execute(() -> terminal(command, new EvalBridgeError(code, "SEND_TEXT_VERSION", detail))); }
+                    });
+                });
+            }
+            @Override public void onFailure(String code, String detail) { serial.execute(() -> terminal(command, new EvalBridgeError(code, "SEND_TEXT_BEFORE_STATE", detail))); }
+        });
+    }
+    private void sendText(EvalCommand command, EvalExecutionRecord record) {
+        com.hirain.aiagent.AgentRequest request = requestFactory.create(command.payload, command.correlationId);
+        record.requestId = request.getRequestId(); record.clientMessageId = command.correlationId;
+        com.hirain.aiagent.test.EvalModeStateStore.registerEvalClientMessageId(command.correlationId);
+        if (agent.send(request) != 0) terminal(command, new EvalBridgeError("AGENT_SERVICE_UNAVAILABLE", "SEND_TEXT", "正式 AIAgent Service 未连接"));
+        else scheduleWatchdog(command, record, command.timeoutMs == null ? 40_000L : Math.max(35_000L, Math.min(60_000L, command.timeoutMs)));
+    }
     private EvalEnvironmentManager.Callback callback(EvalCommand command, EvalExecutionRecord record, EvalResultEnvelope running) {
         return new EvalEnvironmentManager.Callback() {
-            @Override public void onResponse(JsonObject response) { serial.execute(() -> { EvalResultEnvelope result = envelope(command, EvalBridgeState.TERMINAL); result.timestamps = running.timestamps; result.timestamps.completedAt = now(); result.operationResult = mapper.operation(command.action, response); if (response.has("versionFingerprint")) result.versionFingerprint = response.getAsJsonObject("versionFingerprint"); terminal(record, result); }); }
+            @Override public void onResponse(JsonObject response) { serial.execute(() -> { EvalResultEnvelope result = envelope(command, EvalBridgeState.TERMINAL); result.timestamps = running.timestamps; result.timestamps.completedAt = now(); result.operationResult = mapper.operation(command.action, response); if (response.has("versionFingerprint")) result.versionFingerprint = canonicalVersionFingerprint(response.getAsJsonObject("versionFingerprint")); terminal(record, result); }); }
             @Override public void onFailure(String code, String detail) { serial.execute(() -> terminal(command, new EvalBridgeError(code, "ENVIRONMENT", detail))); }
         };
     }
@@ -112,8 +139,39 @@ public final class EvalBridgeManager {
         EvalExecutionRecord record = registry.get(response.getClientMessageId());
         if (record == null || record.requestId == null || !record.requestId.equals(response.getRequestId())) return;
         record.callbackReceived = true;
-        EvalResultEnvelope result = new EvalResultEnvelope(); result.correlationId = record.correlationId; result.action = EvalAction.SEND_TEXT; result.bridgeState = EvalBridgeState.TERMINAL; result.requestId = record.requestId; result.agentResponse = responseMapper.map(response); result.timestamps.callbackReceivedAt = now(); result.timestamps.completedAt = now(); terminal(record, result);
+        record.agentResponse = responseMapper.map(response);
+        captureAfterState(record, 0);
     }
+    /** 回调后异步读取 after-state；短暂重试避免工具写回与状态快照的竞态。 */
+    private void captureAfterState(EvalExecutionRecord record, int attempt) {
+        environment.operate(EvalAction.READ_STATE, record.correlationId, null, new EvalEnvironmentManager.Callback() {
+            @Override public void onResponse(JsonObject response) {
+                serial.execute(() -> { record.afterVehicleState = snapshotOf(response);
+                    EvalResultEnvelope result = new EvalResultEnvelope(); result.protocolVersion = record.protocolVersion; result.correlationId = record.correlationId; result.action = EvalAction.SEND_TEXT; result.bridgeState = EvalBridgeState.TERMINAL; result.requestId = record.requestId; result.agentResponse = record.agentResponse; result.beforeVehicleState = record.beforeVehicleState; result.afterVehicleState = record.afterVehicleState; result.versionFingerprint = record.versionFingerprint; result.timestamps.callbackReceivedAt = now(); result.timestamps.completedAt = now(); terminal(record, result);
+                });
+            }
+            @Override public void onFailure(String code, String detail) {
+                serial.execute(() -> { if (attempt < 2) scheduler.schedule(() -> serial.execute(() -> captureAfterState(record, attempt + 1)), 300, TimeUnit.MILLISECONDS);
+                    else terminal(record, sendTextError(record, code, "SEND_TEXT_AFTER_STATE", detail)); });
+            }
+        });
+    }
+    private EvalResultEnvelope sendTextError(EvalExecutionRecord record, String code, String stage, String detail) {
+        EvalResultEnvelope result = new EvalResultEnvelope(); result.protocolVersion = record.protocolVersion; result.correlationId = record.correlationId; result.action = EvalAction.SEND_TEXT; result.bridgeState = EvalBridgeState.TERMINAL; result.requestId = record.requestId; result.agentResponse = record.agentResponse; result.beforeVehicleState = record.beforeVehicleState; result.versionFingerprint = record.versionFingerprint; result.timestamps.callbackReceivedAt = now(); result.timestamps.completedAt = now(); result.bridgeError = new EvalBridgeError(code, stage, detail); return result;
+    }
+    private static JsonObject snapshotOf(JsonObject response) { return response.has("snapshot") && response.get("snapshot").isJsonObject() ? response.getAsJsonObject("snapshot") : null; }
+    /** 将 AIAgent 内部版本响应收敛为电脑端 Schema，杜绝内部字段名成为外层协议。 */
+    private static JsonObject canonicalVersionFingerprint(JsonObject source) {
+        JsonObject target = new JsonObject();
+        copyString(source, target, "versionName", "aiagentVersion");
+        if (source.has("versionCode")) target.addProperty("apkBuildId", source.get("versionCode").getAsString());
+        copyString(source, target, "textModel", "model");
+        copyString(source, target, "promptHash", "promptDigest");
+        copyString(source, target, "stateSchemaVersion", "stateSchemaVersion");
+        copyString(source, target, "traceContentMode", "traceMode");
+        return target;
+    }
+    private static void copyString(JsonObject source, JsonObject target, String sourceKey, String targetKey) { if (source.has(sourceKey) && !source.get(sourceKey).isJsonNull()) target.addProperty(targetKey, source.get(sourceKey).getAsString()); }
     private void scheduleWatchdog(EvalCommand command, EvalExecutionRecord record, long timeoutMs) {
         record.watchdog = scheduler.schedule(() -> serial.execute(() -> {
             if (record.terminal.get()) return;

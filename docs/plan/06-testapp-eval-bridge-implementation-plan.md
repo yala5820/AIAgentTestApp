@@ -326,6 +326,17 @@ Logcat 只记录：correlationId、action、bridgeState、错误码和耗时。�
 
 若模拟器上的 `run-as` 因包不可调试、ROM 策略或签名限制不可用，实施 Agent 必须停止并向用户报告证据，再讨论是否改为 external app-specific debug 目录或 Debug ContentProvider。不得自行增加第二套结果通道。
 
+#### 已批准的车机多用户替代通道（2026-07-17）
+
+目标车机模拟器将应用运行在 Android user 10，`adb shell run-as` 只能访问 user 0 且不支持 `--user`；shell 也无权直接读取 user 10 的 external app-specific 目录。经用户确认，Debug 包使用只读、`exported=true` 的 `EvalResultProvider` 作为结果读取通道：
+
+```text
+adb shell content read --user 10 \
+  --uri content://com.hirain.aiagent.test.eval.results/<correlationId>
+```
+
+Provider 只接受安全 correlationId，只读打开既有原子结果文件，不包含在 Release manifest 中。它不替代外层结果 Schema，也不提供命令写入能力。
+
 ### 4.7 Phase 1 测试
 
 #### 新建测试

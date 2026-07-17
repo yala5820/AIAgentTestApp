@@ -26,6 +26,18 @@ public final class EvalResultStore {
         this.codec = codec;
         this.policy = new EvalResultFilePolicy(codec);
     }
+    /**
+     * 仅用于已获批准的 Debug 车机多用户结果通道。外部 app-specific 目录不需要
+     * ContentProvider，也不会让 Release 获得该能力；目录本身就是最终结果目录。
+     */
+    public static EvalResultStore forApprovedExternalDirectory(File directory, EvalProtocolCodec codec) {
+        return new EvalResultStore(directory, codec, true);
+    }
+    private EvalResultStore(File directory, EvalProtocolCodec codec, boolean exactDirectory) {
+        this.directory = directory;
+        this.codec = codec;
+        this.policy = new EvalResultFilePolicy(codec);
+    }
     public synchronized boolean write(EvalResultEnvelope result) throws IOException {
         if (result == null || result.correlationId == null || !result.correlationId.matches("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")) throw new IOException("unsafe correlationId");
         if (!directory.exists() && !directory.mkdirs()) throw new IOException("cannot create eval-results");
